@@ -1,6 +1,3 @@
-import pytest
-
-
 class TestModelBlueprintRegistered:
     def test_scenarios_unauthenticated_redirects(self, client):
         """Verifies model_routes blueprint is registered and auth guard works."""
