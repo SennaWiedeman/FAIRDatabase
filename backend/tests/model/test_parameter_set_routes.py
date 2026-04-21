@@ -3,7 +3,7 @@ import pytest
 
 class TestParameterSetRoutes:
     def test_create_parameter_set_returns_201(self, logged_in_user, app):
-        client, user = logged_in_user
+        client, _ = logged_in_user
         resp = client.post(
             "/model/parameter-sets",
             json={"name": "PFOA Default", "description": "Standard PFOA", "params": {"HalfLife": 2.5}},
