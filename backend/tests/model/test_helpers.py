@@ -1,4 +1,3 @@
-import json
 import pytest
 from app import get_db
 
@@ -30,6 +29,7 @@ class TestPBPKHelpers:
     def test_fetch_nonexistent_parameter_set_returns_none(self, app):
         from src.model.helpers import fetch_parameter_set
         with app.app_context():
+            get_db()
             assert fetch_parameter_set(999999999) is None
 
     def test_list_parameter_sets(self, app):
@@ -99,4 +99,5 @@ class TestPBPKHelpers:
     def test_fetch_nonexistent_run_returns_none(self, app):
         from src.model.helpers import fetch_run
         with app.app_context():
+            get_db()
             assert fetch_run(999999999) is None

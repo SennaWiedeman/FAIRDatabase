@@ -45,17 +45,22 @@ def available_scenarios() -> list[dict]:
 def store_parameter_set(name: str, description: str, params: dict, created_by: str) -> int:
     """Insert a named parameter set and return its id."""
     cur = g.db.cursor()
-    cur.execute(
-        """
-        INSERT INTO _fd.pbpk_parameter_sets (name, description, params, created_by)
-        VALUES (%s, %s, %s::jsonb, %s)
-        RETURNING id
-        """,
-        (name, description, json.dumps(params), created_by),
-    )
-    row = cur.fetchone()
-    g.db.commit()
-    cur.close()
+    try:
+        cur.execute(
+            """
+            INSERT INTO _fd.pbpk_parameter_sets (name, description, params, created_by)
+            VALUES (%s, %s, %s::jsonb, %s)
+            RETURNING id
+            """,
+            (name, description, json.dumps(params), created_by),
+        )
+        row = cur.fetchone()
+        g.db.commit()
+    except Exception:
+        g.db.rollback()
+        raise
+    finally:
+        cur.close()
     return row[0]
 
 
@@ -81,15 +86,17 @@ def fetch_parameter_set(param_set_id: int) -> dict | None:
     return result
 
 
-def list_parameter_sets() -> list[dict]:
-    """Return all parameter sets (id, name, description, model_id, created_by, created_at)."""
+def list_parameter_sets(limit: int = 200) -> list[dict]:
+    """Return parameter sets ordered by creation date, newest first."""
     cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """
         SELECT id, name, description, model_id, created_by, created_at
         FROM _fd.pbpk_parameter_sets
         ORDER BY created_at DESC
-        """
+        LIMIT %s
+        """,
+        (limit,),
     )
     rows = cur.fetchall()
     cur.close()
@@ -104,17 +111,22 @@ def list_parameter_sets() -> list[dict]:
 def create_run(param_set_id: int, scenario: str, created_by: str) -> int:
     """Insert a new simulation run with status='pending' and return its id."""
     cur = g.db.cursor()
-    cur.execute(
-        """
-        INSERT INTO _fd.pbpk_simulation_runs (param_set_id, scenario, status, created_by)
-        VALUES (%s, %s, 'pending', %s)
-        RETURNING id
-        """,
-        (param_set_id, scenario, created_by),
-    )
-    row = cur.fetchone()
-    g.db.commit()
-    cur.close()
+    try:
+        cur.execute(
+            """
+            INSERT INTO _fd.pbpk_simulation_runs (param_set_id, scenario, status, created_by)
+            VALUES (%s, %s, 'pending', %s)
+            RETURNING id
+            """,
+            (param_set_id, scenario, created_by),
+        )
+        row = cur.fetchone()
+        g.db.commit()
+    except Exception:
+        g.db.rollback()
+        raise
+    finally:
+        cur.close()
     return row[0]
 
 
@@ -126,6 +138,8 @@ def update_run(
     error_message: str | None = None,
 ) -> None:
     """Update run status, timestamps, and optionally results or error."""
+    if not status:
+        raise ValueError("status must be a non-empty string")
     now = datetime.now(timezone.utc)
     parts = ["status = %s"]
     values: list = [status]
@@ -148,12 +162,17 @@ def update_run(
 
     values.append(run_id)
     cur = g.db.cursor()
-    cur.execute(
-        f"UPDATE _fd.pbpk_simulation_runs SET {', '.join(parts)} WHERE id = %s",
-        values,
-    )
-    g.db.commit()
-    cur.close()
+    try:
+        cur.execute(
+            f"UPDATE _fd.pbpk_simulation_runs SET {', '.join(parts)} WHERE id = %s",
+            values,
+        )
+        g.db.commit()
+    except Exception:
+        g.db.rollback()
+        raise
+    finally:
+        cur.close()
 
 
 def fetch_run(run_id: int) -> dict | None:
