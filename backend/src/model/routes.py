@@ -23,6 +23,10 @@ from .helpers import (
     store_parameter_set,
     fetch_parameter_set,
     list_parameter_sets,
+    create_run,
+    update_run,
+    fetch_run,
+    DEFAULT_PARAMS,
 )
 
 routes = Blueprint("model_routes", __name__)
@@ -91,3 +95,55 @@ def get_parameter_set(param_set_id):
     if ps is None:
         return jsonify({"error": "Parameter set not found"}), 404
     return jsonify(ps), 200
+
+
+# ── Simulation run endpoints ──────────────────────────────────────────────────
+
+@routes.route("/runs", methods=["POST"])
+@login_required()
+def create_simulation_run():
+    payload = request.get_json(silent=True) or {}
+    param_set_id = payload.get("param_set_id")
+    if param_set_id is None:
+        return jsonify({"error": "param_set_id is required"}), 400
+
+    ps = fetch_parameter_set(int(param_set_id))
+    if ps is None:
+        return jsonify({"error": "Parameter set not found"}), 404
+
+    scenario = payload.get("scenario", "no_bf")
+    created_by = session.get("email", "")
+
+    run_id = create_run(int(param_set_id), scenario, created_by)
+    update_run(run_id, "running")
+
+    merged_params = {**DEFAULT_PARAMS, **ps["params"], "scenario": scenario}
+
+    try:
+        result = run_scenario(merged_params)
+    except ValueError as exc:
+        update_run(run_id, "error", error_message=str(exc))
+        return jsonify({"error": str(exc), "run_id": run_id}), 400
+    except RuntimeError as exc:
+        update_run(run_id, "error", error_message=str(exc))
+        return jsonify({"error": f"Simulation failed: {exc}", "run_id": run_id}), 500
+
+    summary = {
+        "peak_C_ven": result.get("peak_C_ven"),
+        "peak_Age_yr": result.get("peak_Age_yr"),
+        "final_C_ven": result.get("final_C_ven"),
+        "final_Age_yr": result.get("final_Age_yr"),
+        "n_rows": result.get("n_rows"),
+    }
+    update_run(run_id, "done", summary=summary, timeseries=result.get("timeseries"))
+
+    return jsonify({"run_id": run_id, **result}), 200
+
+
+@routes.route("/runs/<int:run_id>", methods=["GET"])
+@login_required()
+def get_simulation_run(run_id):
+    run = fetch_run(run_id)
+    if run is None:
+        return jsonify({"error": "Run not found"}), 404
+    return jsonify(run), 200
