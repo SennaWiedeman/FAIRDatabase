@@ -102,6 +102,21 @@ docker compose down
 docker compose down -v
 ```
 
+### Database schemas
+
+Application-level schemas — `_fd` (CSV-upload metadata, from `backend/migrate_schema.sql`) and the PBPK tables (`backend/pbpk_schema.sql`) — are applied **automatically** on a fresh DB and on every Flask container boot:
+
+- On a fresh `db` volume, both files are mounted into `/docker-entrypoint-initdb.d/migrations/` and run by Postgres at first init.
+- On every `flask-app` container start, the entrypoint re-applies them via `psql`. Both files are idempotent (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), so re-runs are safe and cover databases that pre-date the init-script mounts.
+
+You should not need to run `psql -f migrate_schema.sql` or `psql -f pbpk_schema.sql` manually. If you add a new schema file, drop it under `backend/`, mount it in `docker-compose.yml` next to the existing two, and add it to the `for sql in ...` loop in `docker-entrypoint.sh`.
+
+### Troubleshooting
+
+**`ImportError: libexpat.so.1: cannot open shared object file`** when the `flask-app` container starts.
+
+The PBPK simulation module (`PBKFAIRModel/`) depends on `python-libsbml`, which is a Python wrapper around a C library that links against `libexpat`. The base `python:3.10-slim` image does not include it. The Dockerfile installs it via `apt-get install libexpat1`. If you ever swap the base image or strip apt packages, libsbml will fail to import and `flask-app` will enter a restart loop. The full set of system libs required by the image is: `libpq5` (psycopg2), `libexpat1` (libsbml), `postgresql-client` (entrypoint migrations), `curl` (healthcheck). If you add scientific Python packages later (e.g. cvxpy, hdf5-based libs), expect to extend this list — check the import error for the missing `.so` and add the matching debian package.
+
 ---
 
 ## Quick Start (Podman)

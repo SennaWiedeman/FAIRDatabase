@@ -2,7 +2,7 @@ FROM python:3.10-slim
 
 # Runtime dependencies: libpq5 for psycopg2-binary, curl for healthcheck
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq5 curl \
+    && apt-get install -y --no-install-recommends libpq5 libexpat1 curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first for layer caching

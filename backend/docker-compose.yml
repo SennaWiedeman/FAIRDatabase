@@ -406,6 +406,11 @@ services:
       - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
+      # FAIRDatabase application schemas (run on fresh DB init only).
+      # The flask-app entrypoint also re-applies these idempotently on every
+      # boot, so existing DB volumes are covered without requiring a reset.
+      - ./migrate_schema.sql:/docker-entrypoint-initdb.d/migrations/100-fd-schema.sql:Z
+      - ./pbpk_schema.sql:/docker-entrypoint-initdb.d/migrations/101-fd-pbpk.sql:Z
     ports:
     - "5433:5432"
     healthcheck:
