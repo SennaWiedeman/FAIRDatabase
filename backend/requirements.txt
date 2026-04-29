@@ -8,3 +8,6 @@ flask_cors==5.0.1
 flask_limiter==3.12
 python-dotenv==1.1.0
 requests==2.31.0
+scipy==1.13.1
+numpy==1.26.4
+python-libsbml==5.20.4

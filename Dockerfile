@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Copy application code
 # Must be at repo root because app.py references ../frontend/templates and ../static
 COPY AnonyBiome/ /app/AnonyBiome/
+COPY PBKFAIRModel/ /app/PBKFAIRModel/
 COPY backend/ /app/backend/
 COPY frontend/ /app/frontend/
 COPY static/ /app/static/
