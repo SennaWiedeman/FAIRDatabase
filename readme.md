@@ -7,6 +7,27 @@ Steps to set up and use the Microbiome FAIR Database locally.
 ## Table of Contents
 
 - [Quick Start (Docker)](#quick-start-docker)
+  - [Option A: Fully Automatic Setup](#option-a-fully-automatic-setup-zero-config)
+    - [Step 1 — Generate config automatically](#step-1--generate-config-automatically)
+    - [Step 2 — Start Docker services](#step-2--start-docker-services)
+    - [Step 3 — Fix .env for local Flask](#step-3--fix-env-for-local-flask)
+    - [Step 4 — Create Python virtual environment](#step-4--create-python-virtual-environment)
+    - [Step 5 — Install dependencies](#step-5--install-dependencies)
+    - [Step 6 — Start Flask](#step-6--start-flask)
+    - [Step 7 — Register and log in](#step-7--register-and-log-in)
+  - [Option B: Manual Setup (Set Your Own Passwords)](#option-b-manual-setup-set-your-own-passwords)
+    - [Step 1 — Create the environment file](#step-1--create-the-environment-file)
+    - [Step 2 — Set your passwords](#step-2--set-your-passwords)
+    - [Step 3 — Bootstrap and start Docker services](#step-3--bootstrap-and-start-docker-services)
+    - [Step 4 — Fix .env for local Flask](#step-4--fix-env-for-local-flask)
+    - [Step 5 — Create Python virtual environment](#step-5--create-python-virtual-environment)
+    - [Step 6 — Install dependencies](#step-6--install-dependencies)
+    - [Step 7 — Start Flask](#step-7--start-flask)
+    - [Step 8 — Register and log in](#step-8--register-and-log-in)
+  - [Access the Application](#access-the-application)
+  - [Stopping and Resetting](#stopping-and-resetting)
+  - [Database schemas](#database-schemas)
+  - [Troubleshooting](#troubleshooting)
 - [Quick Start (Podman)](#quick-start-podman)
 - [Development Setup (Run Flask locally)](#development-setup-run-flask-locally)
 - [Running Tests](#running-tests)
@@ -20,73 +41,171 @@ Steps to set up and use the Microbiome FAIR Database locally.
 
 ## Quick Start (Docker)
 
-The fastest way to get everything running. Requires only [Docker](https://docs.docker.com/get-docker/) installed.
+Requires only [Docker](https://docs.docker.com/get-docker/) installed. Choose one of the two options below — **Option A** for a zero-config quickstart, **Option B** if you want to set your own passwords.
 
-There are two ways to start the application: an automatic setup for quickly testing it out, and a manual setup if you want to set your own passwords.
+---
 
 ### Option A: Fully Automatic Setup (Zero Config)
 
-If you just want to try it out quickly and don't care about setting your own passwords, use the automatic setup:
+#### Step 1 — Generate config automatically
 
 ```bash
-# 1. Generate all required passwords and configuration files automatically
 bash scripts/bootstrap.sh --auto
+```
 
-# 2. Start the application
+> The generated passwords (including the Supabase Studio dashboard password) are printed to your terminal. Save them.
+
+#### Step 2 — Start Docker services
+
+```bash
 cd backend
 docker compose up -d
 ```
 
-> **Note:** The generated passwords (including the one for the Supabase Studio dashboard) will be printed in your terminal output. Save them somewhere safe!
+Wait ~30 seconds for all services to become healthy. You can check with:
+
+```bash
+docker compose ps
+```
+
+All key services (`supabase-auth`, `supabase-kong`, `supabase-db`) should show `(healthy)`.
+
+#### Step 3 — Fix .env for local Flask
+
+`bootstrap.sh` writes Docker-internal hostnames into `backend/.env` that only work inside the Docker network. Before running Flask on your machine, change these three values in `backend/.env`:
+
+```
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5433
+SUPABASE_URL=http://localhost:8000
+```
+
+> **Important:** You must repeat this step every time you re-run `bootstrap.sh`, as it overwrites these values. If you skip it, login will fail.
+
+#### Step 4 — Create Python virtual environment
+
+```bash
+# Run from the backend/ directory
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### Step 5 — Install dependencies
+
+```bash
+# Must be run from backend/ with the venv activated
+pip install -r requirements.txt
+```
+
+#### Step 6 — Start Flask
+
+```bash
+./run.sh
+```
+
+#### Step 7 — Register and log in
+
+There is no default user account. You must register before you can log in:
+
+1. Go to **http://localhost:5000/auth/register** and create an account with any email and password.
+2. You will be redirected to **http://localhost:5000/auth/login** — use the same credentials to log in.
+
+`ENABLE_EMAIL_AUTOCONFIRM=true` is set by default so no email verification is required.
+
+---
 
 ### Option B: Manual Setup (Set Your Own Passwords)
 
-If you want to choose your own passwords for better security or local development:
-
-#### 1. Create the Environment File
+#### Step 1 — Create the environment file
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-#### 2. Configure Environment Variables
+#### Step 2 — Set your passwords
 
-Open the newly created `backend/.env` file in any text editor. You **must** change the following three variables from `change-me` to secure passwords of your choice:
+Open `backend/.env` and change these three variables from `change-me` to values of your choice:
 
-- `POSTGRES_PASSWORD`: The password for your PostgreSQL database. Make this secure.
-- `DASHBOARD_PASSWORD`: The password you will use to log into the Supabase Studio dashboard (the username is always `supabase`).
-- `SECRET_KEY`: A secret key used by the Flask application to keep user sessions secure. A long, random string of characters works best.
+- `POSTGRES_PASSWORD` — PostgreSQL database password.
+- `DASHBOARD_PASSWORD` — Password for the Supabase Studio dashboard (username is always `supabase`).
+- `SECRET_KEY` — Secret key for Flask session security. Use a long random string.
 
-**Optional Variables (Leave as defaults unless needed):**
-- `SITE_URL`: Where the app runs (default: `http://localhost:5000`).
-- `SMTP_*`: Email server settings. Leave blank if you don't need the app to send real emails.
-- `DISABLE_SIGNUP`: Set to `true` to stop new users from registering.
-- `ENABLE_EMAIL_AUTOCONFIRM`: Set to `true` so new users don't have to verify their email address (great for local testing).
+**Optional variables (leave as defaults unless needed):**
+- `SITE_URL` — Where the app runs (default: `http://localhost:5000`).
+- `SMTP_*` — Email server settings. Leave blank if you don't need email sending.
+- `DISABLE_SIGNUP` — Set to `true` to prevent new user registrations.
+- `ENABLE_EMAIL_AUTOCONFIRM` — Set to `true` so new users skip email verification (recommended for local testing).
 
-#### 3. Bootstrap and Launch
-
-Once your `.env` file is saved, run the bootstrap script. This will use your passwords to generate all the necessary security keys (like JWT tokens) and configure the database.
+#### Step 3 — Bootstrap and start Docker services
 
 ```bash
-# Generate keys and configs based on your .env file
 bash scripts/bootstrap.sh
 
-# Start all the services in the background
 cd backend
 docker compose up -d
 ```
 
+Wait ~30 seconds for all services to become healthy:
+
+```bash
+docker compose ps
+```
+
+All key services (`supabase-auth`, `supabase-kong`, `supabase-db`) should show `(healthy)`.
+
+#### Step 4 — Fix .env for local Flask
+
+`bootstrap.sh` writes Docker-internal hostnames into `backend/.env` that only work inside the Docker network. Before running Flask on your machine, change these three values in `backend/.env`:
+
+```
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5433
+SUPABASE_URL=http://localhost:8000
+```
+
+> **Important:** You must repeat this step every time you re-run `bootstrap.sh`, as it overwrites these values. If you skip it, login will fail.
+
+#### Step 5 — Create Python virtual environment
+
+```bash
+# Run from the backend/ directory
+python3 -m venv venv
+source venv/bin/activate
+```
+
+#### Step 6 — Install dependencies
+
+```bash
+# Must be run from backend/ with the venv activated
+pip install -r requirements.txt
+```
+
+#### Step 7 — Start Flask
+
+```bash
+./run.sh
+```
+
+#### Step 8 — Register and log in
+
+There is no default user account. You must register before you can log in:
+
+1. Go to **http://localhost:5000/auth/register** and create an account with any email and password.
+2. You will be redirected to **http://localhost:5000/auth/login** — use the same credentials to log in.
+
+`ENABLE_EMAIL_AUTOCONFIRM=true` is set by default so no email verification is required.
+
+---
+
 ### Access the Application
 
-Once the services are running, you can access the different parts of the application in your web browser:
+Once everything is running:
 
 | Service | URL | Description |
 |---|---|---|
-| **Main Application** | http://localhost:5000 | The main FAIRDatabase website where users log in and manage data. |
-| **Database Dashboard** | http://localhost:3000 | Supabase Studio: A visual interface to view and manage your database tables. (Login with username `supabase` and your `DASHBOARD_PASSWORD`). |
-| **API Endpoint** | http://localhost:8000 | The underlying Supabase API URL (usually only needed for development). |
-
-To get started, go to http://localhost:5000/auth/register to create your first user account.
+| **Main Application** | http://localhost:5000 | The FAIRDatabase app — register and log in here. |
+| **Database Dashboard** | http://localhost:3000 | Supabase Studio — view and manage database tables. Login: username `supabase`, password = your `DASHBOARD_PASSWORD`. |
+| **API Endpoint** | http://localhost:8000 | Supabase API — used internally by the app. |
 
 ### Stopping and Resetting
 
@@ -192,6 +311,8 @@ If you are a developer and prefer to run the Flask application directly on your 
 
 ### Flask setup
 
+All commands below must be run from inside the `backend/` directory.
+
 1. Navigate to the `backend` directory:
     ```bash
     cd backend
@@ -215,12 +336,23 @@ If you are a developer and prefer to run the Flask application directly on your 
     SUPABASE_URL=http://localhost:8000
     ```
 
+    > **Important:** `bootstrap.sh` generates `backend/.env` with Docker-internal hostnames (`POSTGRES_HOST=db`, `POSTGRES_PORT=5432`, `SUPABASE_URL=http://kong:8000`) that only work inside the Docker network. The three values above must be changed **every time you re-run `bootstrap.sh`** when running Flask locally. If you skip this step, login will fail silently.
+
 5. Start the Flask development server:
     ```bash
     ./run.sh
     ```
-    
+
 The application will now be running at `http://localhost:5000` and will automatically reload if you make changes to the Python code.
+
+### Logging in for the first time
+
+There is no default user account. You must register before you can log in:
+
+1. Go to **http://localhost:5000/auth/register** and create an account with any email and password.
+2. You will be redirected to **http://localhost:5000/auth/login** — use the same credentials to log in.
+
+`ENABLE_EMAIL_AUTOCONFIRM=true` is set by default, so no email verification is required.
 
 ---
 
