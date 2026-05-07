@@ -223,3 +223,4 @@ backend/docker-compose.override.yml
 backend/scripts/
 .mcp.json
 .env
+.env
