@@ -222,3 +222,4 @@ backend/docker-compose.override.yml
 # Seed/test scripts
 backend/scripts/
 .mcp.json
+.env
