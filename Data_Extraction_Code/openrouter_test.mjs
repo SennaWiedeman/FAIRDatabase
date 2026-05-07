@@ -1,3 +1,4 @@
+import "dotenv/config";
 import OpenAI from "openai";
 import { execSync } from "child_process";
 import * as fs from "fs";
@@ -5,7 +6,7 @@ import * as path from "path";
 
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: "REMOVED",
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 const PDF_FOLDER = "./pdfs";
